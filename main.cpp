@@ -1,5 +1,4 @@
 #include "SDL.h"
-#include "SDL_cpuinfo.h"
 
 int main(int argc, char* argv[]) {
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
