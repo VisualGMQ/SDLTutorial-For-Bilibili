@@ -1,7 +1,11 @@
 #include "SDL.h"
+#include <math.h>
 
-bool isquit = false;
-SDL_Rect playerRect;
+#define WindowWidth 800
+#define WindowHeight 600
+
+#define TriangleWidth 25
+#define TriangleHeight 25
 
 void EventHandle(SDL_Event*);
 void ClearScreen(SDL_Renderer*);
@@ -10,13 +14,10 @@ void Present(SDL_Renderer*);
 void LogicUpdate(SDL_Window*);
 void Render(SDL_Renderer*);
 
-#define WindowWidth 500
-#define WindowHeight 400
+bool isquit = false;
+SDL_Rect playerRect;
 
-#define TriangleWidth 25
-#define TriangleHeight 25
-
-int speed = 1;
+int speed;
 
 int timer = 0;
 
@@ -68,13 +69,51 @@ void EventHandle(SDL_Event* event) {
     }
 }
 
-void ClearScreen(SDL_Renderer* renderer) {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+/******************/
+/*  Logic Update  */
+/******************/
+
+bool IsPlayerDead() {
+    return playerRect.w + playerRect.x >= WindowCurrentWidth - TriangleHeight ||
+           playerRect.h + playerRect.y >= WindowCurrentHeight - TriangleHeight ||
+           playerRect.x <= TriangleHeight || playerRect.y <= TriangleHeight;
 }
 
-void Present(SDL_Renderer* renderer) {
-    SDL_RenderPresent(renderer);
+void UpdateGameScene(SDL_Window* window) {
+    SDL_GetWindowSize(window, &WindowCurrentWidth, &WindowCurrentHeight);
+
+    int halfSpd = ceil(speed / 2.0);
+    WindowCurrentHeight -= speed;
+    WindowCurrentWidth -= speed;
+
+    SDL_Point pos;
+    SDL_GetWindowPosition(window, &pos.x, &pos.y);
+    SDL_SetWindowPosition(window, pos.x + halfSpd, pos.y + halfSpd);
+
+    SDL_SetWindowSize(window, WindowCurrentWidth, WindowCurrentHeight);
+
+    playerRect.x -= halfSpd;
+    playerRect.y -= halfSpd;
+}
+
+void UpdateHardLevelByTime(int time) {
+    if (timer >= 0 && timer <= 1000) {
+        speed = 2;
+    } else {
+        speed = 3;
+    }
+}
+
+void IncTime(int* time) {
+    *time += 1;
+}
+
+void DoGameOver(SDL_Window* window) {
+    isGameOver = true;
+
+    SDL_SetWindowAlwaysOnTop(window, SDL_FALSE);
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "游戏结束", "玩家已经死亡", NULL);
+    SDL_SetWindowResizable(window, SDL_FALSE);
 }
 
 void LogicUpdate(SDL_Window* window) {
@@ -82,40 +121,29 @@ void LogicUpdate(SDL_Window* window) {
         return;
     }
 
-    timer ++;
+    IncTime(&timer);
+    UpdateHardLevelByTime(timer);
+    UpdateGameScene(window);
 
-    SDL_GetWindowSize(window, &WindowCurrentWidth, &WindowCurrentHeight);
-    if (timer >= 0 && timer <= 1000) {
-        speed = 1;
-    } else {
-        speed = 3;
-    }
-    WindowCurrentHeight -= speed;
-    WindowCurrentWidth -= speed;
-
-    SDL_SetWindowSize(window, WindowCurrentWidth, WindowCurrentHeight);
-
-    if (playerRect.w + playerRect.x >= WindowCurrentWidth - TriangleHeight ||
-        playerRect.h + playerRect.y >= WindowCurrentHeight - TriangleHeight) {
-        isGameOver = true;
-        SDL_SetWindowAlwaysOnTop(window, SDL_FALSE);
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "游戏结束", "玩家已经死亡", NULL);
-        SDL_SetWindowResizable(window, SDL_FALSE);
+    if (IsPlayerDead()) {
+        DoGameOver(window);
     }
 }
 
-void Render(SDL_Renderer* renderer) {
-    ClearScreen(renderer);
 
-    if (!isGameOver) {
-        SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-        SDL_RenderDrawRect(renderer, &playerRect);
-    }
+/***********************/
+/*     Render Part     */
+/***********************/
 
-    int num = (int)((WindowCurrentWidth / (float)TriangleWidth) + 0.5);
+void DrawPlayer(SDL_Renderer* renderer, SDL_Rect* playerRect) {
+    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
+    SDL_RenderDrawRect(renderer, playerRect);
+}
 
+void DrawSpine(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
 
+    int num = (int)((WindowCurrentWidth / (float)TriangleWidth) + 0.5);
     for (int i = 0; i < num; i++) {
         SDL_RenderDrawLine(renderer, i * TriangleWidth, 0, i * TriangleWidth + (0.5 * TriangleWidth), TriangleHeight);
         SDL_RenderDrawLine(renderer, i * TriangleWidth + (0.5 * TriangleWidth), TriangleHeight, (i + 1) * TriangleWidth, 0);
@@ -132,6 +160,22 @@ void Render(SDL_Renderer* renderer) {
         SDL_RenderDrawLine(renderer, WindowCurrentWidth, i * TriangleWidth, WindowCurrentWidth - TriangleHeight, (i + 0.5) * TriangleWidth);
         SDL_RenderDrawLine(renderer, WindowCurrentWidth - TriangleHeight, (i + 0.5) * TriangleWidth, WindowCurrentWidth, (i + 1) * TriangleWidth);
     }
+}
 
+void ClearScreen(SDL_Renderer* renderer) {
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+}
+
+void Present(SDL_Renderer* renderer) {
+    SDL_RenderPresent(renderer);
+}
+
+void Render(SDL_Renderer* renderer) {
+    ClearScreen(renderer);
+    if (!isGameOver) {
+        DrawPlayer(renderer, &playerRect);
+    }
+    DrawSpine(renderer);
     Present(renderer);
 }
