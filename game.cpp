@@ -1,4 +1,5 @@
 #include "SDL.h"
+#include "SDL_image.h"
 #include <math.h>
 
 #define WindowWidth 800
@@ -26,11 +27,15 @@ int WindowCurrentHeight = WindowHeight;
 
 bool isGameOver = false;
 
+SDL_Texture* PlayerTexture;
+SDL_Texture* SpikeTexture;
+
 int main(int argc, char* argv[]) {
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         SDL_Log("sdl init failed");
         return 1;
     }
+    IMG_Init(IMG_INIT_PNG|IMG_INIT_JPG);
 
     SDL_Window* window = SDL_CreateWindow("shaped",
                                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -40,10 +45,16 @@ int main(int argc, char* argv[]) {
     SDL_SetWindowMaximumSize(window, 1000, 1000);
     SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
 
+    PlayerTexture = IMG_LoadTexture(renderer, "resources/player.png");
+    SpikeTexture = IMG_LoadTexture(renderer, "resources/Spike.png");
+    if (!PlayerTexture || !SpikeTexture) {
+        SDL_Log("load image failed");
+    }
+
     SDL_Event event;
 
-    playerRect.w = 50;
-    playerRect.h = 50;
+    playerRect.w = 32;
+    playerRect.h = 32;
     playerRect.x = (WindowWidth - playerRect.w) / 2;
     playerRect.y = (WindowHeight - playerRect.h) / 2;
 
@@ -57,6 +68,9 @@ int main(int argc, char* argv[]) {
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
 
+    SDL_DestroyTexture(PlayerTexture);
+    SDL_DestroyTexture(SpikeTexture);
+    IMG_Quit();
     SDL_Quit();
     return 0;
 }
@@ -136,8 +150,7 @@ void LogicUpdate(SDL_Window* window) {
 /***********************/
 
 void DrawPlayer(SDL_Renderer* renderer, SDL_Rect* playerRect) {
-    SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
-    SDL_RenderDrawRect(renderer, playerRect);
+    SDL_RenderCopy(renderer, PlayerTexture, NULL, playerRect);
 }
 
 void DrawSpine(SDL_Renderer* renderer) {
@@ -145,20 +158,21 @@ void DrawSpine(SDL_Renderer* renderer) {
 
     int num = (int)((WindowCurrentWidth / (float)TriangleWidth) + 0.5);
     for (int i = 0; i < num; i++) {
-        SDL_RenderDrawLine(renderer, i * TriangleWidth, 0, i * TriangleWidth + (0.5 * TriangleWidth), TriangleHeight);
-        SDL_RenderDrawLine(renderer, i * TriangleWidth + (0.5 * TriangleWidth), TriangleHeight, (i + 1) * TriangleWidth, 0);
+        SDL_Rect dstrect = {TriangleWidth * i, 0, TriangleWidth, TriangleWidth};
+        SDL_RenderCopy(renderer, SpikeTexture, NULL, &dstrect);
 
-        SDL_RenderDrawLine(renderer, i * TriangleWidth, WindowCurrentHeight, i * TriangleWidth + (0.5 * TriangleWidth), WindowCurrentHeight - TriangleHeight);
-        SDL_RenderDrawLine(renderer, i * TriangleWidth + (0.5 * TriangleWidth), WindowCurrentHeight - TriangleHeight, (i + 1) * TriangleWidth, WindowCurrentHeight);
+        dstrect.y = WindowCurrentHeight - TriangleHeight;
+        SDL_RenderCopyEx(renderer, SpikeTexture, NULL, &dstrect, 0, NULL, SDL_FLIP_VERTICAL);
     }
 
     num = (int)((WindowCurrentHeight / (float)TriangleWidth) + 0.5);
     for (int i = 0; i < num; i++) {
-        SDL_RenderDrawLine(renderer, 0, i * TriangleWidth, TriangleHeight, (i + 0.5) * TriangleWidth);
-        SDL_RenderDrawLine(renderer, TriangleHeight, (i + 0.5) * TriangleWidth, 0, (i + 1) * TriangleWidth);
+        SDL_Rect dstrect = {0, TriangleWidth * i, TriangleWidth, TriangleWidth};
+        SDL_Point p{0, 0};
+        SDL_RenderCopyEx(renderer, SpikeTexture, NULL, &dstrect, -90, &p, SDL_FLIP_NONE);
 
-        SDL_RenderDrawLine(renderer, WindowCurrentWidth, i * TriangleWidth, WindowCurrentWidth - TriangleHeight, (i + 0.5) * TriangleWidth);
-        SDL_RenderDrawLine(renderer, WindowCurrentWidth - TriangleHeight, (i + 0.5) * TriangleWidth, WindowCurrentWidth, (i + 1) * TriangleWidth);
+        dstrect.x = WindowCurrentWidth;
+        SDL_RenderCopyEx(renderer, SpikeTexture, NULL, &dstrect, 90, &p, SDL_FLIP_NONE);
     }
 }
 
